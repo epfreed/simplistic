@@ -5,8 +5,8 @@ import org.scalatest.matchers.ShouldMatchers
 
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])
 class DomainSuite extends WordSpec with ShouldMatchers with TestUtil.CleanBefore with TestUtil.StopAndStartServer {
-  import TestUtil._
 
+  import TestUtil._
   val testDomain = account.domain("test")
 
   "Domain.create" should {

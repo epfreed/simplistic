@@ -17,6 +17,7 @@ package simplistic
 import Request.{AttributeOperation, AddValue, ReplaceValue}
 
 import scala.collection.MapProxy
+import collection.generic.Sorted
 
 /**
  * A map implementation which holds a snapshot of the properties and values of an item.
@@ -45,28 +46,14 @@ class ItemNameSnapshot(val name: String, val self: Map[String,Set[String]])
   override def toString = "ItemSnapshot(" + name + ", " + self + ")"
 }
 
-/**
- * A class which serves as a proxy to a Domain within simpleDB.  This class holds no data
- * other than a reference to the domain name.  Calls to methods which access items from
- * within the domain will always result in network requests to SimpleDB.
- */
-class Domain(val name: String)(implicit val api: SimpleAPI) {
-  import api._
-  import StreamMaker._
-
-  /**
-   * Return a current snapshot of the metadata associated with this domain.
-   *
-   * This is the analog of the 'DomainMetadata' request.
-   */
-  def metadata: DomainMetadataResult = (new DomainMetadataRequest(name)).response.result
+trait DomainLike {
 
   /**
    * Delete this domain from the SimpleDB account.
    *
    * This is the analog of the 'DeleteDomain' request.
    */
-  def delete() = (new DeleteDomainRequest(name)).response.metadata
+  def delete(): Any
 
   /**
    * Create a domain within SimpleDB corresponding to this object if one doesn't exist
@@ -74,16 +61,16 @@ class Domain(val name: String)(implicit val api: SimpleAPI) {
    *
    * This is the analog of the 'CreateDomain'
    */
-  def create() = (new CreateDomainRequest(name)).response.metadata
+  def create(): Any
 
   /** Return a reference to a theoretically unique item with a new UUID as it's name. */
-  def unique = new Item(this, java.util.UUID.randomUUID.toString)
+  def unique: Item
 
   /** Return a reference to an item with a given name within this domain. */
-  def item(name: String) = new Item(this, name)
+  def item(name: String): Item
 
   /** Return a reference to an item given an ItemNameSnapshot (as returned from select) */
-  def item(snapshot: ItemNameSnapshot) = new Item(this, snapshot.name)
+  def item(snapshot: ItemNameSnapshot): Item
 
   /**
    * Return a stream containing all of the items within the domain.  One simpleDB request
@@ -94,7 +81,7 @@ class Domain(val name: String)(implicit val api: SimpleAPI) {
    * This the exact analog of using the 'Query' request without specifying a query
    * expression.
    */
-  def items: Stream[Item] = api.items("itemName() from `%s`".format(name), this)
+  def items: Stream[Item]
 
   /**
    * Return a stream containing all of the items within the domain with all of their
@@ -104,7 +91,7 @@ class Domain(val name: String)(implicit val api: SimpleAPI) {
    * This is the analog of using the 'QueryWithAttributes' request without specifying a
    * query expression.
    */
-  def itemsWithAttributes: Stream[ItemSnapshot] = withAttributes(Set[String]())
+  def itemsWithAttributes: Stream[ItemSnapshot]
 
   /**
    * Return a stream containing the items matching a given query with all of their
@@ -134,9 +121,8 @@ class Domain(val name: String)(implicit val api: SimpleAPI) {
   * This is the analog of using the 'QueryWithAttributes' request with a query
   * expression and a list of attributes.
   */
- def withAttributes(expression: String, attributes: Set[String]): Stream[ItemSnapshot] =
-   withAttributes(Some(expression), attributes)
-
+  def withAttributes(expression: String, attributes: Set[String]): Stream[ItemSnapshot] =
+    withAttributes(Some(expression), attributes)
 
  /**
   * Return a stream containing the items matching an optional query with a selected set
@@ -146,24 +132,106 @@ class Domain(val name: String)(implicit val api: SimpleAPI) {
   *
   * This is the analog of using the 'QueryWithAttributes' request.
   */
- def withAttributes(expression: Option[String], attributes: Set[String]): Stream[ItemSnapshot] = {
+ def withAttributes(expression: Option[String], attributes: Set[String]): Stream[ItemSnapshot]
+
+  /**
+   * Perform a batch of attribute modifications on multiple items within the same domain in
+   * one operation.
+   */
+  def apply(batch: List[AttributeOperation]*): Any
+}
+
+/**
+ * A class which serves as a proxy to a Domain within simpleDB.  This class holds no data
+ * other than a reference to the domain name.  Calls to methods which access items from
+ * within the domain will always result in network requests to SimpleDB.
+ */
+class Domain(val name: String)(implicit val api: SimpleAPI) extends DomainLike {
+  import api._
+  import StreamMaker._
+
+  /**
+   * Return a current snapshot of the metadata associated with this domain.
+   *
+   * This is the analog of the 'DomainMetadata' request.
+   */
+  def metadata = (new DomainMetadataRequest(name)).response.result
+
+  def delete() = (new DeleteDomainRequest(name)).response.metadata
+
+  def create() = (new CreateDomainRequest(name)).response.metadata
+
+  def unique = new Item(this, java.util.UUID.randomUUID.toString)
+
+  def item(name: String) = new Item(this, name)
+
+  def item(snapshot: ItemNameSnapshot) = new Item(this, snapshot.name)
+
+  def items: Stream[Item] = api.items("itemName() from `%s`".format(name), this)
+
+  def itemsWithAttributes: Stream[ItemSnapshot] = withAttributes(Set[String]())
+
+  def withAttributes(expression: Option[String], attributes: Set[String]): Stream[ItemSnapshot] = {
     expression match {
       case None => select("* from `%s`".format(name), this)
       case Some(where) => select("* from `%s` where %s".format(name, where), this)
     }
   }
 
-  /**
-   * Perform a batch of attribute modifications on multiple items within the same domain in
-   * one operation.
-   */
-  def apply(batch: List[AttributeOperation]*) = {
+  def apply(batch: List[AttributeOperation]*): ResponseMetadata = {
     // combine the attributes into a single operation.
     val operations = (List[AttributeOperation]() /: batch) (_ ++ _)
     new BatchPutAttributesRequest(name, operations).response.metadata
   }
 
   override def toString = name
+}
+
+class Partitions(val partitions: Seq[String], val partitionChooser: (String,Seq[Domain]) => Domain = { (key,domains) =>
+  val index = math.abs(key.hashCode % domains.size) match {
+    case x if (x > 0) => x
+    case _ => 0
+  }
+  domains(index)
+})(implicit val api: SimpleAPI) extends DomainLike {
+  import api._
+
+  val domains = partitions.sorted map { name => new Domain(name) }
+  private def partition(name: String): Domain = partitionChooser(name, domains)
+
+  def metadata = domains.map(_.metadata)
+
+  def unique = {
+    val name = java.util.UUID.randomUUID.toString
+    new Item(partition(name), name)
+  }
+
+  def delete(): List[ResponseMetadata] = domains map(_.delete) toList
+
+  def create(): List[ResponseMetadata] = domains map(_.create) toList
+
+  def item(name:String) = partition(name).item(name)
+
+  def item(snapshot: ItemNameSnapshot) = partition(snapshot.name).item(snapshot)
+
+  def items: Stream[Item] = Stream(domains.map(_.items): _*).flatten
+
+  def itemsWithAttributes: Stream[ItemSnapshot] = Stream(domains.map(_.itemsWithAttributes): _*).flatten
+
+  def withAttributes(expression: Option[String], attributes: Set[String]): Stream[ItemSnapshot] = {
+    Stream(domains.map(_.withAttributes(expression, attributes)): _*).flatten
+  }
+
+  def apply(batch: List[AttributeOperation]*): List[ResponseMetadata] = {
+    val operations = (List[AttributeOperation]() /: batch) (_ ++ _)
+    operations groupBy { op =>
+      partition(op.name)
+    } filter(!_._2.isEmpty) map { case (domain, operations) =>
+      new BatchPutAttributesRequest(domain.name, operations).response.metadata
+    } toList
+  }
+
+  override def toString = domains.map(_.toString).mkString("[", ",", "]")
 }
 
 /**
@@ -401,6 +469,14 @@ trait SimpleAPI extends Concrete
    * using the 'create' method, or deleted using the 'delete' method.
    */
   def domain(name: String) = new Domain(name)
+
+  /**
+   * Return a proxy object representing the named simpleDB domains as partitions backing a
+   * domain-like service.  No request is made and the domains may or not exist on the server.
+   * Domains may be created or deleted on the server using the 'create' and 'delete' methods,
+   * respectively.
+   */
+  def partitions(names: String*) = new Partitions(names.toList)
 
   /**
    * Return a stream of all of the domains within the simpleDB account.  As usual this stream

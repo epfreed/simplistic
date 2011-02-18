@@ -16,9 +16,9 @@ SLF4J = [
 ]
 LOG4J = "log4j:log4j:jar:1.2.15"
 
-FAKESDB = "fakesdb:fakesdb-standalone:jar:1.11"
+FAKESDB = "fakesdb:fakesdb-standalone:jar:2.1"
 
-download(artifact(FAKESDB) => 'https://github.com/downloads/stephenh/fakesdb/fakesdb-standalone-1.11.jar')
+download(artifact(FAKESDB) => 'https://github.com/downloads/stephenh/fakesdb/fakesdb-standalone-2.1.jar')
 
 desc 'Scala binding for Amazon SimpleDB'
 define "simplistic" do

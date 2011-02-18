@@ -113,26 +113,26 @@ trait DomainLike {
    */
   def withAttributes(attributes: Set[String]): Stream[ItemSnapshot] = withAttributes(None, attributes)
 
- /**
-  * Return a stream containing the items matching a given query with a selected set of
-  * their attributes.  As with most of the queries that return multiple results, a lazy
-  * stream is returned and additional requests are made to SimpleDB only when needed.
-  *
-  * This is the analog of using the 'QueryWithAttributes' request with a query
-  * expression and a list of attributes.
-  */
+  /**
+   * Return a stream containing the items matching a given query with a selected set of
+   * their attributes.  As with most of the queries that return multiple results, a lazy
+   * stream is returned and additional requests are made to SimpleDB only when needed.
+   *
+   * This is the analog of using the 'QueryWithAttributes' request with a query
+   * expression and a list of attributes.
+   */
   def withAttributes(expression: String, attributes: Set[String]): Stream[ItemSnapshot] =
     withAttributes(Some(expression), attributes)
 
- /**
-  * Return a stream containing the items matching an optional query with a selected set
-  * of their attributes.  As with most of the queries that return multiple results, a
-  * lazy stream is returned and additional requests are made to SimpleDB only when
-  * needed.  If 'None' is supplied instead of the query string, all items are returned.
-  *
-  * This is the analog of using the 'QueryWithAttributes' request.
-  */
- def withAttributes(expression: Option[String], attributes: Set[String]): Stream[ItemSnapshot]
+  /**
+   * Return a stream containing the items matching an optional query with a selected set
+   * of their attributes.  As with most of the queries that return multiple results, a
+   * lazy stream is returned and additional requests are made to SimpleDB only when
+   * needed.  If 'None' is supplied instead of the query string, all items are returned.
+   *
+   * This is the analog of using the 'QueryWithAttributes' request.
+   */
+  def withAttributes(expression: Option[String], attributes: Set[String]): Stream[ItemSnapshot]
 
   /**
    * Perform a batch of attribute modifications on multiple items within the same domain in
@@ -187,6 +187,12 @@ class Domain(val name: String)(implicit val api: SimpleAPI) extends DomainLike {
   override def toString = name
 }
 
+/**
+ * A class which serves as a proxy to multiple Domains within simpleDB.  This class holds
+ * no data other than a reference to the domain name and a function for mapping items to
+ * the underlying partitions.  Calls to methods which access items from within the domain
+ * will always result in network requests to SimpleDB.
+ */
 class Partitions(val partitions: Seq[String], val partitionChooser: (String,Seq[Domain]) => Domain = { (key,domains) =>
   val index = math.abs(key.hashCode % domains.size) match {
     case x if (x > 0) => x
@@ -218,9 +224,8 @@ class Partitions(val partitions: Seq[String], val partitionChooser: (String,Seq[
 
   def itemsWithAttributes: Stream[ItemSnapshot] = Stream(domains.map(_.itemsWithAttributes): _*).flatten
 
-  def withAttributes(expression: Option[String], attributes: Set[String]): Stream[ItemSnapshot] = {
+  def withAttributes(expression: Option[String], attributes: Set[String]): Stream[ItemSnapshot] =
     Stream(domains.map(_.withAttributes(expression, attributes)): _*).flatten
-  }
 
   def apply(batch: List[AttributeOperation]*): List[ResponseMetadata] = {
     val operations = (List[AttributeOperation]() /: batch) (_ ++ _)

@@ -20,7 +20,9 @@ sbt package
 
 sbt console
 
-// testthen you can do the examples:
+// then you can do the examples:
+//
+// (BTW, the most important file is the SimpleAPI.scala)
 
 -------------------------------------------------------------------------------
 /**
@@ -28,7 +30,6 @@ sbt console
  */
 
 import simplistic._
-import Query._
 import Conversions._
 import Attributes._
 import Select._
@@ -75,6 +76,9 @@ for (i <- data.select(  visits > 1 and
                         orderBy user desc) ) { println(user(i)) }
 
 for (i <- data.select( user is "robin"))  { println(visits(i)) }
+
+//as a foreach
+data.select(visits > 1 and visits < 50).foreach( i => println( user(i) ))
 
 data.count( visits > 10)
 

@@ -4,3 +4,7 @@ target/
 .scala_dependencies
 reports/
 *~
+lib_managed/
+src_managed/
+project/boot/
+*.swp

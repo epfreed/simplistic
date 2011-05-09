@@ -1,0 +1,96 @@
+Simplistic: Scala Bindings for SimpleDB (Amazon Web Services)
+=============================================================
+
+This is a fork of <http://github.com/rbarooah/simpledb-scala-binding> migrating to sbt, and cleaning up the examples. 
+
+// Assuming you have installed sbt ( http://code.google.com/p/simple-build-tool/ ) you can build like this:
+
+sbt update
+sbt compile
+
+// run tests:
+
+sbt test
+
+// create a jar file
+
+sbt package
+
+//to do examples in the REPL do this:
+
+sbt console
+
+// testthen you can do the examples:
+
+-------------------------------------------------------------------------------
+/**
+ * Simple test file used for experimentation at the console.
+ */
+
+import simplistic._
+import Query._
+import Conversions._
+import Attributes._
+import Select._
+
+val account = new SimpleDBAccount(System.getenv("AWS_ACCESS_KEY_ID"), System.getenv("AWS_SECRET_ACCESS_KEY"))
+
+// List all domains
+account.domains.toList
+
+val data = account.domain("testdata")
+
+// make sure the domain exists
+data.create()
+
+// define some attributes
+val user = attribute("user")
+val startDate = attribute("startDate", ISO8601Date)
+val visits = attribute("visits", PositiveInt)
+val tags = attribute("tags")
+
+// insert some items
+// unique uses a UUID as its name
+data.unique += (user("robin"), startDate(new java.util.Date()), visits(3))
+data.unique += (user("jon"), startDate(new java.util.Date()), visits(20))
+data.unique += (user("alice"), startDate(new java.util.Date()), visits(15))
+data.unique += (user("jack"), startDate(new java.util.Date()), visits(100))
+
+
+// do some queries
+
+data.select(visits > 16)
+
+for (i <- data.select(visits > 16)) { println(user(i)) }
+
+for (i <- data.select(  visits > 16 and  
+                        visits < 50) ) { println(user(i)) }
+
+for (i <- data.select(  visits > 1 and
+                        visits < 50
+                        orderBy visits desc) ) { println(user(i)) }
+
+for (i <- data.select(  visits > 1 and
+                        visits < 50
+                        orderBy user desc) ) { println(user(i)) }
+
+for (i <- data.select( user is "robin"))  { println(visits(i)) }
+
+data.count( visits > 10)
+
+// get rid of the test data
+(data items) foreach (_.clear)
+
+---------------------------------------------------------------------------------
+
+
+### Target platform ###
+
+* Scala 2.8.0+
+* JVM 1.6+
+
+### License ###
+
+Simplistic is is licensed under the terms of the Apache Software License v2.0.
+<http://www.apache.org/licenses/LICENSE-2.0.html>
+

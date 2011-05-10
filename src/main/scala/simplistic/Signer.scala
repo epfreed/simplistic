@@ -45,9 +45,9 @@ class Signer(key: String) {
       mac.doFinal
     }
 
-    val base64Encoder = new org.apache.commons.codec.binary.Base64
-    val encode = base64Encoder.encode(digest)
+    val encode = org.apache.commons.codec.binary.Base64.encodeBase64(digest)
 
+     
     "Signature" -> new String(encode)
   }
 }

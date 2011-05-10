@@ -37,8 +37,8 @@ import Select._
 val account = new SimpleDBAccount(System.getenv("AWS_ACCESS_KEY_ID"), System.getenv("AWS_SECRET_ACCESS_KEY"))
 
 // List all domains
-account.domains.toList
-
+omai
+// get a domain
 val data = account.domain("testdata")
 
 // make sure the domain exists
@@ -51,6 +51,16 @@ val visits = attribute("visits", PositiveInt)
 val tags = attribute("tags")
 
 // insert some items
+
+//create an item named ItemName
+val item = data.item("ItemName")
+
+//add an attribute named attributeName
+item += (("attributeName", "attributeValue"))
+item += user("fred")
+
+
+
 // unique uses a UUID as its name
 data.unique += (user("robin"), startDate(new java.util.Date()), visits(3))
 data.unique += (user("jon"), startDate(new java.util.Date()), visits(20))

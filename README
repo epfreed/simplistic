@@ -37,7 +37,8 @@ import Select._
 val account = new SimpleDBAccount(System.getenv("AWS_ACCESS_KEY_ID"), System.getenv("AWS_SECRET_ACCESS_KEY"))
 
 // List all domains
-omai
+account.domains.toList
+
 // get a domain
 val data = account.domain("testdata")
 
@@ -52,13 +53,41 @@ val tags = attribute("tags")
 
 // insert some items
 
-//create an item named ItemName
+//create (or get) an item named ItemName
 val item = data.item("ItemName")
 
 //add an attribute named attributeName
 item += (("attributeName", "attributeValue"))
-item += user("fred")
 
+//add an user typed attribute (defined above)
+item += user("fred's user name")
+
+//add a multple attribute
+item += ("hobbies", Set("golf","hunting"))
+
+//see all attributes as a Map
+item.attributes
+
+//return attributes as an Option
+item.attributesOption
+
+//get the attributes
+item.attribute("hobbies")
+item.attribute("attributeName")
+
+//get back the typed attribute
+item.attribute(user)
+
+//remove an attribute
+item -= ("attributeName")
+
+//remove a typed attribute
+item -= user
+
+//-------------------------------------------------------------
+// Selects 
+
+for ( i <- data.select( user is "fred")) { println(user(i)) }
 
 
 // unique uses a UUID as its name
@@ -68,9 +97,12 @@ data.unique += (user("alice"), startDate(new java.util.Date()), visits(15))
 data.unique += (user("jack"), startDate(new java.util.Date()), visits(100))
 
 
+
 // do some queries
 
 data.select(visits > 16)
+
+
 
 for (i <- data.select(visits > 16)) { println(user(i)) }
 

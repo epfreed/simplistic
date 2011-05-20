@@ -7,9 +7,9 @@ import fakesdb.Jetty
 import simplistic._
 
 object TestUtil {
-  val jetty = Jetty.apply(8181)
+  val jetty = Jetty.apply(8180)
 
-  val account = new SimpleDBAccount("foo", "bar", "http://localhost:8181")
+  val account = new SimpleDBAccount("foo", "bar", "http://localhost:8180")
 
   def flush() {
     account.domain("_flush").create

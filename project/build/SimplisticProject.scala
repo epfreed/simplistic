@@ -10,7 +10,8 @@ class SimplisticProject(info: ProjectInfo) extends DefaultProject(info)
     //downlowds from github do not work. jar is in lib directory
     //val fakesbd = "fakesdb" % "fakesdb-standalone" % "2.2" from "https://github.com/downloads/stephenh/fakesdb/fakesdb-standalone-2.2.jar"
 
-    val scalatest = "org.scalatest" % "scalatest" % "1.3"
+    //val scalatest = "org.scalatest" %% "scalatest" % "1.3"
+    val scalatest = "org.scalatest" %% "scalatest" % "1.4.1"
     val junitInterface = "com.novocode" % "junit-interface" % "0.4" % "test"
 
 
